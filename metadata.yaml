@@ -1,0 +1,5 @@
+homepage: "https://kickflipanalytics.com/"
+documentation: "https://github.com/dpezrez/gtm-consent-state/"
+versions:
+  - sha: 8a9bafe595aa109f721543523e60ba4469de84a3
+    changeNotes: Initial release.
