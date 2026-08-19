@@ -140,7 +140,7 @@ ___TEMPLATE_PARAMETERS___
         "type": "EQUALS"
       }
     ],
-    "help": "The gcd string carries both the default consent state and any subsequent update. <b>Effective</b> is what actually applied to the hit."
+    "help": "The gcd string carries both the default consent state and any subsequent update. <b>Effective</b> is what actually applied to the hit. Note that not every gcd string carries an update - if the page sent no consent update, <b>Update only</b> falls through to your unknown handling."
   },
   {
     "type": "SELECT",
@@ -419,10 +419,12 @@ function resolveGcd(gcdString) {
   const updateState = parseConsentBits(bits & 3);
   const mode = data.stateSource || 'effective';
 
-  const state = mode === 'default' ? defaultState :
-    mode === 'update' ? updateState :
-    updateState === 'unknown' ? defaultState : updateState;
+  if (mode === 'default') return finish(defaultState);
+  if (mode === 'update') return finish(updateState);
+  return finish(updateState === 'unknown' ? defaultState : updateState);
+}
 
+function finish(state) {
   if (state === 'unknown') return unknown();
   return render(state === 'granted');
 }
@@ -680,6 +682,35 @@ scenarios:
     };
 
     assertThat(runCode(mockData)).isEqualTo('granted');
+- name: gcd - update only returns granted when an update was sent
+  code: |-
+    const mockData = {
+      consentSource: 'gcd',
+      consentType: 'ad_storage',
+      stateSource: 'update',
+      outputType: 'string',
+      grantedString: 'granted',
+      deniedString: 'denied',
+      unknownHandling: 'denied',
+      gcdOverride: '13r3r1t1r5l1'
+    };
+
+    assertThat(runCode(mockData)).isEqualTo('granted');
+- name: gcd - update only is unset when no update was sent
+  code: |-
+    const mockData = {
+      consentSource: 'gcd',
+      consentType: 'ad_storage',
+      stateSource: 'update',
+      outputType: 'string',
+      grantedString: 'granted',
+      deniedString: 'denied',
+      unknownHandling: 'custom',
+      unknownValue: 'unset',
+      gcdOverride: '11t1t1t1t5'
+    };
+
+    assertThat(runCode(mockData)).isEqualTo('unset');
 - name: gcd - ad_user_data update only is unset
   code: |-
     const mockData = {
