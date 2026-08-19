@@ -3,7 +3,7 @@ documentation: "https://github.com/dpezrez/gtm-consent-state/"
 versions:
   - sha: 8a9bafe595aa109f721543523e60ba4469de84a3
     changeNotes: Initial release.
-  - sha: a1903ab299333a622a68a6ca93e19f6d594a22cc
+  - sha: d4ad391594348bba65635b928131feae78cb5253
     changeNotes: |
       Decode the gcd string locally - the Analytics Debugger API call, the
       request cache and the send_http and access_template_storage permissions
