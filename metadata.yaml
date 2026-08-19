@@ -3,3 +3,11 @@ documentation: "https://github.com/dpezrez/gtm-consent-state/"
 versions:
   - sha: 8a9bafe595aa109f721543523e60ba4469de84a3
     changeNotes: Initial release.
+  - sha: 8ed5ff1f6f88016fd8fa827607a38d3b9c217049
+    changeNotes: |
+      Decode the gcd string locally - the Analytics Debugger API call, the
+      request cache and the send_http and access_template_storage permissions
+      are all gone, and the variable now resolves synchronously.
+      Added support for the gcs consent string read from x-ga-gcs.
+      Trimmed the gcd signal list to the four signals the string actually
+      carries.
