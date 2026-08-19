@@ -10,8 +10,8 @@ Built by Daniel Perry-Reed @ [Kickflip Analytics](https://kickflipanalytics.com/
 
 ## **🚀 Key Features**
 
-* **Both consent strings**: choose **gcd** for all four signals with their default and update states, or **gcs** for the short `G1xx` string read from `x-ga-gcs`.
-* **Decoded locally**: no outbound request, no latency, no third-party dependency. The template asks only for the `gcd`/`gcs` query parameters and the `gcd`/`x-ga-gcs` event data keys.
+* **Both consent strings**: choose **gcd** for all four signals with their default and update states, or the well documented **gcs** for the short `G1xx` string.
+* **Decoded locally**: no outbound request, no latency, no third-party dependency.
 * **Default, update or effective state** (gcd only): the gcd string carries both the default consent state and any subsequent update. Choose either, or **Effective** (the update if it was set, otherwise the default) - which is what actually applied to the hit.
 * **Typed output**: return a **String**, **Boolean** or **Number**, with your own value for granted and for denied. `granted`/`denied`, `true`/`false`, `1`/`0`, `Y`/`N`, inverted booleans - all configurable, and all validated against the selected type.
 * **Sensible defaults**: leave a value blank and it falls back to `granted`/`denied`, `true`/`false` or `1`/`0` as appropriate, so an emptied field can never emit `""` or `NaN`.
