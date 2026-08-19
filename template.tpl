@@ -14,7 +14,12 @@ ___INFO___
   "version": 1,
   "securityGroups": [],
   "displayName": "Consent State",
-  "description": "Convert Google's Consent Mode states to user-friendly values. Built by Daniel Perry-Reed @ Kickflip Analytics.",
+  "categories": [
+    "ANALYTICS",
+    "ADVERTISING",
+    "UTILITY"
+  ],
+  "description": "Convert Google's Consent Mode states (gcs/gcd) to user-friendly values. Built by Daniel Perry-Reed @ Kickflip Analytics.",
   "containerContexts": [
     "SERVER"
   ]
@@ -26,6 +31,26 @@ ___TEMPLATE_PARAMETERS___
 [
   {
     "type": "SELECT",
+    "name": "consentSource",
+    "displayName": "Consent string",
+    "macrosInSelect": false,
+    "selectItems": [
+      {
+        "value": "gcd",
+        "displayValue": "gcd (default and update states)"
+      },
+      {
+        "value": "gcs",
+        "displayValue": "gcs (ad_storage and analytics_storage only)"
+      }
+    ],
+    "simpleValueType": true,
+    "defaultValue": "gcd",
+    "alwaysInSummary": true,
+    "help": "<b>gcd</b> carries four signals, each with a default and an update state. <b>gcs</b> is the short <b>G1xx</b> string read from <b>x-ga-gcs</b> and carries only <b>ad_storage</b> and <b>analytics_storage</b>. Both are decoded locally - this template makes no external requests."
+  },
+  {
+    "type": "SELECT",
     "name": "consentType",
     "displayName": "Consent parameter",
     "macrosInSelect": false,
@@ -33,10 +58,6 @@ ___TEMPLATE_PARAMETERS___
       {
         "value": "ad_storage",
         "displayValue": "ad_storage"
-      },
-      {
-        "value": "analytics_storage",
-        "displayValue": "analytics_storage"
       },
       {
         "value": "ad_user_data",
@@ -47,42 +68,48 @@ ___TEMPLATE_PARAMETERS___
         "displayValue": "ad_personalization"
       },
       {
-        "value": "allow_ad_personalization_signals",
-        "displayValue": "allow_ad_personalization_signals"
-      },
-      {
-        "value": "global_privacy_control",
-        "displayValue": "global_privacy_control"
-      },
-      {
-        "value": "custom",
-        "displayValue": "Other (enter manually)"
+        "value": "analytics_storage",
+        "displayValue": "analytics_storage"
       }
     ],
     "simpleValueType": true,
     "defaultValue": "ad_storage",
     "alwaysInSummary": true,
-    "help": "Which consent signal from the decoded <b>gcd</b> string should be returned."
-  },
-  {
-    "type": "TEXT",
-    "name": "customConsentType",
-    "displayName": "Consent parameter key",
-    "simpleValueType": true,
-    "alwaysInSummary": true,
     "enablingConditions": [
       {
-        "paramName": "consentType",
-        "paramValue": "custom",
+        "paramName": "consentSource",
+        "paramValue": "gcd",
         "type": "EQUALS"
       }
     ],
-    "valueValidators": [
+    "help": "These are the only four signals the <b>gcd</b> string carries. <b>functionality_storage</b>, <b>personalization_storage</b> and <b>security_storage</b> are not sent to the server container."
+  },
+  {
+    "type": "SELECT",
+    "name": "consentTypeGcs",
+    "displayName": "Consent parameter",
+    "macrosInSelect": false,
+    "selectItems": [
       {
-        "type": "NON_EMPTY"
+        "value": "ad_storage",
+        "displayValue": "ad_storage"
+      },
+      {
+        "value": "analytics_storage",
+        "displayValue": "analytics_storage"
       }
     ],
-    "help": "Exact key as returned by the decode API, e.g. <b>ad_storage</b>."
+    "simpleValueType": true,
+    "defaultValue": "ad_storage",
+    "alwaysInSummary": true,
+    "enablingConditions": [
+      {
+        "paramName": "consentSource",
+        "paramValue": "gcs",
+        "type": "EQUALS"
+      }
+    ],
+    "help": "The <b>gcs</b> string only carries these two signals."
   },
   {
     "type": "SELECT",
@@ -106,6 +133,13 @@ ___TEMPLATE_PARAMETERS___
     "simpleValueType": true,
     "defaultValue": "effective",
     "alwaysInSummary": true,
+    "enablingConditions": [
+      {
+        "paramName": "consentSource",
+        "paramValue": "gcd",
+        "type": "EQUALS"
+      }
+    ],
     "help": "The gcd string carries both the default consent state and any subsequent update. <b>Effective</b> is what actually applied to the hit."
   },
   {
@@ -292,7 +326,7 @@ ___TEMPLATE_PARAMETERS___
     "simpleValueType": true,
     "defaultValue": "denied",
     "alwaysInSummary": true,
-    "help": "Applies when there is no <b>gcd</b> parameter, the signal is not present in the string (<b>-</b>), or the API call fails."
+    "help": "Applies when the consent string is missing or malformed, or when the signal was never set (decodes to <b>-</b>)."
   },
   {
     "type": "TEXT",
@@ -320,27 +354,7 @@ ___TEMPLATE_PARAMETERS___
         "name": "gcdOverride",
         "displayName": "Consent string override",
         "simpleValueType": true,
-        "help": "Optional. By default the template reads <b>gcd</b> from the event data, falling back to the request query parameter. Provide a variable here to source the string from somewhere else."
-      },
-      {
-        "type": "CHECKBOX",
-        "name": "useCache",
-        "checkboxText": "Cache decoded strings for the lifetime of the request",
-        "simpleValueType": true,
-        "defaultValue": true,
-        "help": "Uses templateDataStorage so multiple instances of this variable only trigger one API call per unique consent string."
-      },
-      {
-        "type": "TEXT",
-        "name": "apiTimeout",
-        "displayName": "API timeout (ms)",
-        "simpleValueType": true,
-        "defaultValue": "3000",
-        "valueValidators": [
-          {
-            "type": "POSITIVE_NUMBER"
-          }
-        ]
+        "help": "Optional. By default the template reads <b>gcd</b> (or <b>x-ga-gcs</b> when gcs is selected) from the event data, falling back to the request query parameter. Provide a variable here to source the string from somewhere else."
       }
     ]
   }
@@ -349,94 +363,99 @@ ___TEMPLATE_PARAMETERS___
 
 ___SANDBOXED_JS_FOR_SERVER___
 
-const encodeUriComponent = require('encodeUriComponent');
 const getEventData = require('getEventData');
 const getRequestQueryParameter = require('getRequestQueryParameter');
 const getType = require('getType');
-const JSON = require('JSON');
-const makeInteger = require('makeInteger');
 const makeNumber = require('makeNumber');
 const makeString = require('makeString');
-const sendHttpRequest = require('sendHttpRequest');
-const templateDataStorage = require('templateDataStorage');
 
 /*==============================================================================
   Config
-==============================================================================*/
-const API_BASE = 'https://openapi.analytics-debugger.com/v1/google/consent/decode/';
-const CACHE_PREFIX = 'gcd::';
 
-const consentType = data.consentType === 'custom' ? data.customConsentType : data.consentType;
-const consentString = data.gcdOverride || getEventData('gcd') || getRequestQueryParameter('gcd');
-const cacheEnabled = data.useCache !== false;
+  gcd decoding follows the approach published by Analytics Debugger (David
+  Vallejo) in gtm-template-server-side-google-consent-parser, Apache 2.0.
+==============================================================================*/
+const BASE64URL = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_';
+
+// Position of the character holding each signal's consent bits in the gcd string
+const GCD_POSITIONS = {
+  ad_storage: 2,
+  analytics_storage: 4,
+  ad_user_data: 6,
+  ad_personalization: 8
+};
+
+const source = data.consentSource || 'gcd';
 
 /*==============================================================================
   Main
 ==============================================================================*/
-if (!consentString || !consentType) {
-  return unknown();
+if (source === 'gcs') {
+  return resolveGcs(data.gcdOverride || getEventData('x-ga-gcs') || getRequestQueryParameter('gcs'));
 }
 
-const cacheKey = CACHE_PREFIX + consentString;
-const cached = cacheEnabled ? templateDataStorage.getItemCopy(cacheKey) : undefined;
-
-if (getType(cached) === 'object') {
-  return resolve(cached);
-}
-
-return sendHttpRequest(API_BASE + enc(consentString), {
-  method: 'GET',
-  timeout: isBlank(data.apiTimeout) ? 3000 : makeInteger(data.apiTimeout)
-}).then(
-  (response) => {
-    if (!response || response.statusCode < 200 || response.statusCode > 299) return unknown();
-    const decoded = parseBody(response.body);
-    if (getType(decoded) !== 'object') return unknown();
-    if (cacheEnabled) templateDataStorage.setItemCopy(cacheKey, decoded);
-    return resolve(decoded);
-  },
-  () => unknown()
-);
+return resolveGcd(data.gcdOverride || getEventData('gcd') || getRequestQueryParameter('gcd'));
 
 /*==============================================================================
-  Helpers
-==============================================================================*/
-function parseBody(body) {
-  const parsed = getType(body) === 'string' ? JSON.parse(body) : body;
-  if (getType(parsed) !== 'object') return undefined;
-  return getType(parsed.result) === 'object' ? parsed.result : parsed;
-}
+  Helpers - gcd
 
-function resolve(decoded) {
-  const state = normalise(pickState(decoded[consentType]));
+  Each signal occupies a two-character block. The second character of the block
+  is a base64url digit whose low four bits hold two 2-bit states: the default
+  consent state and the update. 2 = denied, 3 = granted, anything else = not set.
+==============================================================================*/
+function resolveGcd(gcdString) {
+  if (isBlank(gcdString)) return unknown();
+
+  const position = GCD_POSITIONS[data.consentType];
+  if (getType(position) !== 'number') return unknown();
+
+  const raw = makeString(gcdString).trim();
+  if (raw.length <= position) return unknown();
+
+  const bits = BASE64URL.indexOf(raw.substring(position, position + 1));
+  if (bits < 0) return unknown();
+
+  const defaultState = parseConsentBits((bits >> 2) & 3);
+  const updateState = parseConsentBits(bits & 3);
+  const mode = data.stateSource || 'effective';
+
+  const state = mode === 'default' ? defaultState :
+    mode === 'update' ? updateState :
+    updateState === 'unknown' ? defaultState : updateState;
+
   if (state === 'unknown') return unknown();
   return render(state === 'granted');
 }
 
-function pickState(entry) {
-  if (getType(entry) !== 'object') return entry;
-  const mode = data.stateSource || 'effective';
-  if (mode === 'default') return entry.default;
-  if (mode === 'update') return entry.update;
-  return normalise(entry.update) === 'unknown' ? entry.default : entry.update;
-}
-
-function normalise(value) {
-  const type = getType(value);
-  if (type === 'null' || type === 'undefined') return 'unknown';
-  if (type === 'boolean') return value ? 'granted' : 'denied';
-  if (type === 'number') {
-    if (value === 1) return 'granted';
-    if (value === 0) return 'denied';
-    return 'unknown';
-  }
-  if (type !== 'string') return 'unknown';
-  const flat = value.toLowerCase();
-  if (['granted', 'true', '1', 'yes', 'g'].indexOf(flat) !== -1) return 'granted';
-  if (['denied', 'false', '0', 'no', 'd'].indexOf(flat) !== -1) return 'denied';
+function parseConsentBits(bits) {
+  if (bits === 3) return 'granted';
+  if (bits === 2) return 'denied';
   return 'unknown';
 }
 
+/*==============================================================================
+  Helpers - gcs
+
+  G1 followed by the ad_storage digit and the analytics_storage digit.
+==============================================================================*/
+function resolveGcs(gcsString) {
+  if (isBlank(gcsString)) return unknown();
+
+  const raw = makeString(gcsString).trim();
+  if (raw.length < 4) return unknown();
+  if (raw.substring(0, 2).toUpperCase() !== 'G1') return unknown();
+
+  const position = data.consentTypeGcs === 'analytics_storage' ? 3 : 2;
+  const digit = raw.substring(position, position + 1);
+
+  if (digit === '1') return render(true);
+  if (digit === '0') return render(false);
+  return unknown();
+}
+
+/*==============================================================================
+  Helpers - output
+==============================================================================*/
 function render(granted) {
   const type = data.outputType || 'string';
 
@@ -492,11 +511,6 @@ function isBlank(value) {
   return makeString(value).trim() === '';
 }
 
-function enc(value) {
-  if (['null', 'undefined'].indexOf(getType(value)) !== -1) value = '';
-  return encodeUriComponent(makeString(value));
-}
-
 
 ___SERVER_PERMISSIONS___
 
@@ -548,6 +562,21 @@ ___SERVER_PERMISSIONS___
                     "string": "gcd"
                   }
                 ]
+              },
+              {
+                "type": 3,
+                "mapKey": [
+                  {
+                    "type": 1,
+                    "string": "queryParameter"
+                  }
+                ],
+                "mapValue": [
+                  {
+                    "type": 1,
+                    "string": "gcs"
+                  }
+                ]
               }
             ]
           }
@@ -569,16 +598,6 @@ ___SERVER_PERMISSIONS___
   {
     "instance": {
       "key": {
-        "publicId": "access_template_storage",
-        "versionId": "1"
-      },
-      "param": []
-    },
-    "isRequired": true
-  },
-  {
-    "instance": {
-      "key": {
         "publicId": "read_event_data",
         "versionId": "1"
       },
@@ -591,6 +610,10 @@ ___SERVER_PERMISSIONS___
               {
                 "type": 1,
                 "string": "gcd"
+              },
+              {
+                "type": 1,
+                "string": "x-ga-gcs"
               }
             ]
           }
@@ -608,39 +631,6 @@ ___SERVER_PERMISSIONS___
       "isEditedByUser": true
     },
     "isRequired": true
-  },
-  {
-    "instance": {
-      "key": {
-        "publicId": "send_http",
-        "versionId": "1"
-      },
-      "param": [
-        {
-          "key": "allowedUrls",
-          "value": {
-            "type": 1,
-            "string": "specific"
-          }
-        },
-        {
-          "key": "urls",
-          "value": {
-            "type": 2,
-            "listItem": [
-              {
-                "type": 1,
-                "string": "https://openapi.analytics-debugger.com/*"
-              }
-            ]
-          }
-        }
-      ]
-    },
-    "clientAnnotations": {
-      "isEditedByUser": true
-    },
-    "isRequired": true
   }
 ]
 
@@ -648,214 +638,195 @@ ___SERVER_PERMISSIONS___
 ___TESTS___
 
 scenarios:
-- name: String output returns the configured granted value
+- name: gcd - ad_storage effective state is granted
   code: |-
-    const Promise = require('Promise');
-    const JSON = require('JSON');
-
-    mock('sendHttpRequest', () => Promise.create((resolve) => {
-      resolve({statusCode: 200, headers: {}, body: JSON.stringify(apiResponse)});
-    }));
-
     const mockData = {
+      consentSource: 'gcd',
       consentType: 'ad_storage',
       stateSource: 'effective',
       outputType: 'string',
       grantedString: 'granted',
       deniedString: 'denied',
       unknownHandling: 'denied',
-      useCache: false,
       gcdOverride: '13r3r1t1r5l1'
     };
 
-    return runCode(mockData).then((result) => {
-      assertThat(result).isEqualTo('granted');
-    });
-- name: String output honours custom values
+    assertThat(runCode(mockData)).isEqualTo('granted');
+- name: gcd - ad_storage default state is denied
   code: |-
-    const Promise = require('Promise');
-    const JSON = require('JSON');
-
-    mock('sendHttpRequest', () => Promise.create((resolve) => {
-      resolve({statusCode: 200, headers: {}, body: JSON.stringify(apiResponse)});
-    }));
-
     const mockData = {
+      consentSource: 'gcd',
       consentType: 'ad_storage',
       stateSource: 'default',
       outputType: 'string',
-      grantedString: 'Y',
-      deniedString: 'N',
+      grantedString: 'granted',
+      deniedString: 'denied',
       unknownHandling: 'denied',
-      useCache: false,
       gcdOverride: '13r3r1t1r5l1'
     };
 
-    return runCode(mockData).then((result) => {
-      assertThat(result).isEqualTo('N');
-    });
-- name: Blank string values fall back to granted/denied
+    assertThat(runCode(mockData)).isEqualTo('denied');
+- name: gcd - ad_user_data falls back to its default when no update was sent
   code: |-
-    const Promise = require('Promise');
-    const JSON = require('JSON');
-
-    mock('sendHttpRequest', () => Promise.create((resolve) => {
-      resolve({statusCode: 200, headers: {}, body: JSON.stringify(apiResponse)});
-    }));
-
     const mockData = {
-      consentType: 'ad_storage',
-      stateSource: 'default',
+      consentSource: 'gcd',
+      consentType: 'ad_user_data',
+      stateSource: 'effective',
       outputType: 'string',
-      grantedString: '',
-      deniedString: '',
+      grantedString: 'granted',
+      deniedString: 'denied',
       unknownHandling: 'denied',
-      useCache: false,
       gcdOverride: '13r3r1t1r5l1'
     };
 
-    return runCode(mockData).then((result) => {
-      assertThat(result).isEqualTo('denied');
-    });
-- name: Boolean output returns a real boolean
+    assertThat(runCode(mockData)).isEqualTo('granted');
+- name: gcd - ad_user_data update only is unset
   code: |-
-    const Promise = require('Promise');
-    const JSON = require('JSON');
-
-    mock('sendHttpRequest', () => Promise.create((resolve) => {
-      resolve({statusCode: 200, headers: {}, body: JSON.stringify(apiResponse)});
-    }));
-
     const mockData = {
-      consentType: 'analytics_storage',
+      consentSource: 'gcd',
+      consentType: 'ad_user_data',
+      stateSource: 'update',
+      outputType: 'string',
+      grantedString: 'granted',
+      deniedString: 'denied',
+      unknownHandling: 'custom',
+      unknownValue: 'unset',
+      gcdOverride: '13r3r1t1r5l1'
+    };
+
+    assertThat(runCode(mockData)).isEqualTo('unset');
+- name: gcd - ad_personalization with boolean output
+  code: |-
+    const mockData = {
+      consentSource: 'gcd',
+      consentType: 'ad_personalization',
       stateSource: 'effective',
       outputType: 'boolean',
       grantedBoolean: 'true',
       deniedBoolean: 'false',
       unknownHandling: 'denied',
-      useCache: false,
       gcdOverride: '13r3r1t1r5l1'
     };
 
-    return runCode(mockData).then((result) => {
-      assertThat(result).isEqualTo(true);
-    });
-- name: Boolean output can be inverted
+    assertThat(runCode(mockData)).isEqualTo(true);
+- name: gcd - analytics_storage with number output
   code: |-
-    const Promise = require('Promise');
-    const JSON = require('JSON');
-
-    mock('sendHttpRequest', () => Promise.create((resolve) => {
-      resolve({statusCode: 200, headers: {}, body: JSON.stringify(apiResponse)});
-    }));
-
     const mockData = {
+      consentSource: 'gcd',
       consentType: 'analytics_storage',
-      stateSource: 'effective',
-      outputType: 'boolean',
-      grantedBoolean: 'false',
-      deniedBoolean: 'true',
-      unknownHandling: 'denied',
-      useCache: false,
-      gcdOverride: '13r3r1t1r5l1'
-    };
-
-    return runCode(mockData).then((result) => {
-      assertThat(result).isEqualTo(false);
-    });
-- name: Unknown state returns the denied value by default
-  code: |-
-    const Promise = require('Promise');
-    const JSON = require('JSON');
-
-    mock('sendHttpRequest', () => Promise.create((resolve) => {
-      resolve({statusCode: 200, headers: {}, body: JSON.stringify(apiResponse)});
-    }));
-
-    const mockData = {
-      consentType: 'global_privacy_control',
-      stateSource: 'effective',
+      stateSource: 'default',
       outputType: 'number',
       grantedNumber: '1',
       deniedNumber: '0',
       unknownHandling: 'denied',
-      useCache: false,
       gcdOverride: '13r3r1t1r5l1'
     };
 
-    return runCode(mockData).then((result) => {
-      assertThat(result).isEqualTo(0);
-    });
-- name: Unknown state returns a custom number when configured
+    assertThat(runCode(mockData)).isEqualTo(0);
+- name: gcd - truncated string is treated as unknown
   code: |-
-    const Promise = require('Promise');
-    const JSON = require('JSON');
-
-    mock('sendHttpRequest', () => Promise.create((resolve) => {
-      resolve({statusCode: 200, headers: {}, body: JSON.stringify(apiResponse)});
-    }));
-
     const mockData = {
-      consentType: 'global_privacy_control',
+      consentSource: 'gcd',
+      consentType: 'ad_personalization',
       stateSource: 'effective',
-      outputType: 'number',
-      grantedNumber: '1',
-      deniedNumber: '0',
-      unknownHandling: 'custom',
-      unknownValue: '-1',
-      useCache: false,
-      gcdOverride: '13r3r1t1r5l1'
+      outputType: 'string',
+      grantedString: 'granted',
+      deniedString: 'denied',
+      unknownHandling: 'denied',
+      gcdOverride: '13r3'
     };
 
-    return runCode(mockData).then((result) => {
-      assertThat(result).isEqualTo(-1);
-    });
-- name: Unknown state returns a custom string when configured
+    assertThat(runCode(mockData)).isEqualTo('denied');
+- name: gcd - missing string returns undefined when configured
   code: |-
     const mockData = {
+      consentSource: 'gcd',
       consentType: 'ad_storage',
       stateSource: 'effective',
       outputType: 'string',
-      unknownHandling: 'custom',
-      unknownValue: 'unset',
-      useCache: false
-    };
-
-    mock('getEventData', () => undefined);
-    mock('getRequestQueryParameter', () => undefined);
-
-    assertThat(runCode(mockData)).isEqualTo('unset');
-- name: Missing consent string returns undefined when configured
-  code: |-
-    const mockData = {
-      consentType: 'ad_storage',
-      stateSource: 'effective',
-      outputType: 'string',
-      unknownHandling: 'undefined',
-      useCache: false
+      unknownHandling: 'undefined'
     };
 
     mock('getEventData', () => undefined);
     mock('getRequestQueryParameter', () => undefined);
 
     assertThat(runCode(mockData)).isEqualTo(undefined);
-setup: |-
-  const apiResponse = {
-    query: {consent_string: '13r3r1t1r5l1'},
-    result: {
-      ad_storage: {default: 'denied', update: 'granted'},
-      analytics_storage: {default: 'denied', update: 'granted'},
-      ad_user_data: {default: 'granted', update: '-'},
-      ad_personalization: {default: 'denied', update: 'granted'},
-      allow_ad_personalization_signals: null,
-      global_privacy_control: null
-    }
-  };
+- name: gcs - ad_storage granted
+  code: |-
+    const mockData = {
+      consentSource: 'gcs',
+      consentTypeGcs: 'ad_storage',
+      outputType: 'string',
+      grantedString: 'granted',
+      deniedString: 'denied',
+      unknownHandling: 'denied',
+      gcdOverride: 'G111'
+    };
+
+    assertThat(runCode(mockData)).isEqualTo('granted');
+- name: gcs - analytics_storage denied
+  code: |-
+    const mockData = {
+      consentSource: 'gcs',
+      consentTypeGcs: 'analytics_storage',
+      outputType: 'string',
+      grantedString: 'granted',
+      deniedString: 'denied',
+      unknownHandling: 'denied',
+      gcdOverride: 'G110'
+    };
+
+    assertThat(runCode(mockData)).isEqualTo('denied');
+- name: gcs - ad_storage denied with boolean output
+  code: |-
+    const mockData = {
+      consentSource: 'gcs',
+      consentTypeGcs: 'ad_storage',
+      outputType: 'boolean',
+      grantedBoolean: 'true',
+      deniedBoolean: 'false',
+      unknownHandling: 'denied',
+      gcdOverride: 'G101'
+    };
+
+    assertThat(runCode(mockData)).isEqualTo(false);
+- name: gcs - non-numeric digit is treated as unknown
+  code: |-
+    const mockData = {
+      consentSource: 'gcs',
+      consentTypeGcs: 'ad_storage',
+      outputType: 'string',
+      grantedString: 'granted',
+      deniedString: 'denied',
+      unknownHandling: 'custom',
+      unknownValue: 'unset',
+      gcdOverride: 'G1--'
+    };
+
+    assertThat(runCode(mockData)).isEqualTo('unset');
+- name: gcs - malformed prefix is treated as unknown
+  code: |-
+    const mockData = {
+      consentSource: 'gcs',
+      consentTypeGcs: 'ad_storage',
+      outputType: 'number',
+      grantedNumber: '1',
+      deniedNumber: '0',
+      unknownHandling: 'denied',
+      gcdOverride: 'XX11'
+    };
+
+    assertThat(runCode(mockData)).isEqualTo(0);
 
 
 ___NOTES___
 
-Created on 19/08/2026
-Decodes the Google Consent Mode `gcd` parameter using
-https://openapi.analytics-debugger.com/v1/google/consent/decode/ and returns a
+v2.0 - gcd is now decoded locally: the Analytics Debugger API call, the request
+cache and the send_http and access_template_storage permissions are all gone,
+and the variable resolves synchronously. Added support for the gcs consent
+string (x-ga-gcs), which carries ad_storage and analytics_storage only and has
+no default/update distinction. gcd decoding follows the approach published by
+Analytics Debugger (David Vallejo) in
+gtm-template-server-side-google-consent-parser, Apache 2.0.
+v1.0 - Decoded the gcd parameter via the Analytics Debugger API and returned a
 single consent signal as a string, boolean or number.
