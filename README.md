@@ -1,4 +1,4 @@
-# **GTM Variable Template - Consent State (v2.0)**
+# **Server GTM Variable Template - Consent State (v2.0)**
 
 This Google Tag Manager (GTM) **Custom Template** is a **server-side variable** that decodes Google's Consent Mode strings and returns the state of a single consent signal in whatever format your tags actually need.
 
