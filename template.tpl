@@ -354,7 +354,7 @@ ___TEMPLATE_PARAMETERS___
         "name": "gcdOverride",
         "displayName": "Consent string override",
         "simpleValueType": true,
-        "help": "Optional. By default the template reads <b>gcd</b> (or <b>x-ga-gcs</b> when gcs is selected) from the event data, falling back to the request query parameter. Provide a variable here to source the string from somewhere else."
+        "help": "Optional. By default the template reads <b>x-ga-gcd</b> (or <b>x-ga-gcs</b> when gcs is selected) from the event data, falling back to the unprefixed key and then the request query parameter. Provide a variable here to source the string from somewhere else."
       }
     ]
   }
@@ -391,10 +391,10 @@ const source = data.consentSource || 'gcd';
   Main
 ==============================================================================*/
 if (source === 'gcs') {
-  return resolveGcs(data.gcdOverride || getEventData('x-ga-gcs') || getRequestQueryParameter('gcs'));
+  return resolveGcs(data.gcdOverride || getEventData('x-ga-gcs') || getEventData('gcs') || getRequestQueryParameter('gcs'));
 }
 
-return resolveGcd(data.gcdOverride || getEventData('gcd') || getRequestQueryParameter('gcd'));
+return resolveGcd(data.gcdOverride || getEventData('x-ga-gcd') || getEventData('gcd') || getRequestQueryParameter('gcd'));
 
 /*==============================================================================
   Helpers - gcd
@@ -615,6 +615,14 @@ ___SERVER_PERMISSIONS___
               },
               {
                 "type": 1,
+                "string": "x-ga-gcd"
+              },
+              {
+                "type": 1,
+                "string": "gcs"
+              },
+              {
+                "type": 1,
                 "string": "x-ga-gcs"
               }
             ]
@@ -679,6 +687,39 @@ scenarios:
       deniedString: 'denied',
       unknownHandling: 'denied',
       gcdOverride: '13r3r1t1r5l1'
+    };
+
+    assertThat(runCode(mockData)).isEqualTo('granted');
+- name: gcd - update only with a fully updated string returns granted
+  code: |-
+    const mockData = {
+      consentSource: 'gcd',
+      consentType: 'ad_personalization',
+      stateSource: 'update',
+      outputType: 'boolean',
+      grantedBoolean: 'true',
+      deniedBoolean: 'false',
+      unknownHandling: 'undefined',
+      gcdOverride: '13r3r3r3r5l1'
+    };
+
+    assertThat(runCode(mockData)).isEqualTo(true);
+- name: gcd - consent string is read from x-ga-gcd event data
+  code: |-
+    mock('getEventData', (key) => {
+      if (key === 'x-ga-gcd') return '13r3r3r3r5l1';
+      return undefined;
+    });
+    mock('getRequestQueryParameter', () => undefined);
+
+    const mockData = {
+      consentSource: 'gcd',
+      consentType: 'ad_personalization',
+      stateSource: 'update',
+      outputType: 'string',
+      grantedString: 'granted',
+      deniedString: 'denied',
+      unknownHandling: 'undefined'
     };
 
     assertThat(runCode(mockData)).isEqualTo('granted');
